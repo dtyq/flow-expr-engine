@@ -103,7 +103,7 @@ class DefenseAgainstSSRF
 
         $requirePublicIp = true;
         if (function_exists('config')) {
-            $requirePublicIp = (bool) config('ssrf.disable_ssrf_protection', false);
+            $requirePublicIp = ! config('ssrf.disable_ssrf_protection', false);
         }
         if ($requirePublicIp) {
             // 验证ip是否是公网ip
