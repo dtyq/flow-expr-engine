@@ -84,7 +84,7 @@ enum WidgetType: string
      */
     case Checkbox = 'checkbox';
 
-    public static function make(null|int|string $input = null): ?self
+    public static function make(int|string|null $input = null): ?self
     {
         // 兼容一下旧的
         if ($input === 'password') {

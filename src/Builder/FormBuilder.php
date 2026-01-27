@@ -47,8 +47,7 @@ class FormBuilder extends Builder
     ],
     "properties": null
 }
-JSON
-            ,
+JSON,
             true
         );
         if (! empty($structure)) {

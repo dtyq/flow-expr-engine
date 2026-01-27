@@ -21,7 +21,7 @@ enum ApiRequestBodyType: string
         return $this->value;
     }
 
-    public static function make(null|ApiRequestBodyType|string $type = null, bool $autoIdentify = false): ?ApiRequestBodyType
+    public static function make(ApiRequestBodyType|string|null $type = null, bool $autoIdentify = false): ?ApiRequestBodyType
     {
         if ($type instanceof ApiRequestBodyType) {
             return $type;

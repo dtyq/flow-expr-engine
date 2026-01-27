@@ -33,7 +33,7 @@ class GetISO8601DateTime extends AbstractMethod
 
     public function getFunction(): ?callable
     {
-        return function (null|int|string $time = null): string {
+        return function (int|string|null $time = null): string {
             $time = $time ?? time();
             if (is_string($time)) {
                 $time = strtotime($time) ?: time();

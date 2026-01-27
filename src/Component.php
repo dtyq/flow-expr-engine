@@ -212,7 +212,7 @@ class Component implements JsonSerializable
         return $this->is(StructureType::Value);
     }
 
-    public function initStructure(null|array|Structure $structure): void
+    public function initStructure(array|Structure|null $structure): void
     {
         if (is_array($structure)) {
             $builder = $this->getBuilder();

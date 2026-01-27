@@ -479,8 +479,7 @@ JSON,
         }
     ]
 }
-JSON
-            ,
+JSON,
             true
         );
 

@@ -94,8 +94,7 @@ class ExpressionTest extends BaseTestCase
         ]
     }
 ]
-JSON
-            ,
+JSON,
             true
         );
         $builder = new ExpressionBuilder();

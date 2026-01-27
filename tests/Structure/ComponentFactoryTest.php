@@ -42,8 +42,7 @@ class ComponentFactoryTest extends BaseTestCase
 
 }
 
-JSON
-            ,
+JSON,
             true
         );
         $component = ComponentFactory::fastCreate($input);
@@ -102,8 +101,7 @@ JSON
         "encryption_value": null
     }
 }
-JSON
-            ,
+JSON,
             true
         );
         $component = ComponentFactory::fastCreate($input, lazy: true);

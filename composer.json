@@ -25,6 +25,7 @@
         "hyperf/config":"*",
         "hyperf/engine-swow":"*",
         "hyperf/framework":"*",
+        "hyperf/laminas-mime": "^3.0",
         "hyperf/http-server":"*",
         "phpstan/phpstan": "^1.0"
     },
