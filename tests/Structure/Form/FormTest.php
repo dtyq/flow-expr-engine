@@ -1560,8 +1560,7 @@ JSON,
         }
     }
 }
-JSON
-            , true);
+JSON, true);
         $form = ComponentFactory::fastCreate($json)->getForm();
         $jsonSchema = $form->toJsonSchema();
         $this->assertEquals(
@@ -1599,8 +1598,7 @@ JSON
         }
     }
 }
-JSON
-            ,
+JSON,
             json_encode($jsonSchema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         );
         $form->appendConstValue([
@@ -2072,6 +2070,340 @@ JSON, true);
 
         // 验证时间戳1634799280对应的UTC时间: Thu, 21 Oct 2021 06:54:40 GMT
         $this->assertStringContainsString('21 Oct 2021 06:54:40 GMT', $result);
+    }
+
+    public function testRemoveAllValues()
+    {
+        // 测试1: 基础类型的值被清除
+        $form = $this->builder->build($this->getFormJsonArray());
+
+        // 验证初始状态有值
+        $keyValue = $form->getKeyValue(execExpression: false);
+        $this->assertNotNull($keyValue['string_key']);
+        $this->assertNotNull($keyValue['number_key']);
+        $this->assertNotNull($keyValue['boolean_key']);
+        $this->assertNotNull($keyValue['integer_key']);
+
+        // 调用 removeAllValues
+        $result = $form->removeAllValues();
+
+        // 验证返回 $this 支持链式调用
+        $this->assertSame($form, $result);
+
+        // 验证所有值都被清除
+        $properties = $form->getProperties();
+        $this->assertNull($properties['string_key']->getValue());
+        $this->assertNull($properties['number_key']->getValue());
+        $this->assertNull($properties['boolean_key']->getValue());
+        $this->assertNull($properties['integer_key']->getValue());
+
+        // 验证对象的值被清除
+        $objectKey = $properties['object_key'];
+        $this->assertNull($objectKey->getValue());
+        $objectProperties = $objectKey->getProperties();
+        $this->assertNull($objectProperties['object_key_child_string']->getValue());
+        $this->assertNull($objectProperties['object_array_const']->getValue());
+
+        // 验证数组的值被清除
+        $arrayKey = $properties['array_key'];
+        $this->assertNull($arrayKey->getValue());
+        $arrayProperties = $arrayKey->getProperties();
+        if ($arrayProperties) {
+            foreach ($arrayProperties as $arrayItem) {
+                $itemProperties = $arrayItem->getProperties();
+                if ($itemProperties) {
+                    $this->assertNull($itemProperties['array_key_child1']->getValue());
+                }
+            }
+        }
+    }
+
+    public function testRemoveAllValuesWithEncryption()
+    {
+        // 创建一个带加密值的表单
+        $form = new Form(
+            FormType::Object,
+            'root',
+            0,
+            'Test Form'
+        );
+
+        $stringField = new Form(
+            FormType::String,
+            'password',
+            0,
+            'Password',
+            null,
+            null,
+            true, // encryption enabled
+            'encrypted_value_here'
+        );
+
+        $valueBuilder = new ValueBuilder();
+        $value = $valueBuilder->build([
+            'type' => 'const',
+            'const_value' => [
+                [
+                    'type' => 'input',
+                    'value' => 'secret_password',
+                ],
+            ],
+            'expression_value' => null,
+        ]);
+        $stringField->setValue($value);
+
+        $form->setProperties(['password' => $stringField]);
+
+        // 验证初始状态（加密后 value 为 null，但 getExecuteValue 会解密返回值）
+        $this->assertNotNull($stringField->getExecuteValue());
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证加密值和普通值都被清除
+        $properties = $form->getProperties();
+        $this->assertNull($properties['password']->getValue());
+        $this->assertNull($properties['password']->getExecuteValue());
+    }
+
+    public function testRemoveAllValuesWithComplexValue()
+    {
+        // 创建一个带 complexValue 的表单
+        $form = new Form(
+            FormType::Object,
+            'root',
+            0,
+            'Test Form'
+        );
+
+        $objectField = new Form(
+            FormType::Object,
+            'data',
+            0,
+            'Data'
+        );
+
+        // 设置 complexValue
+        $objectField->setComplexValue(['key1' => 'value1', 'key2' => 'value2']);
+
+        $form->setProperties(['data' => $objectField]);
+
+        // 验证初始状态
+        $this->assertNotNull($objectField->getComplexValue());
+        $this->assertEquals(['key1' => 'value1', 'key2' => 'value2'], $objectField->getComplexValue());
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证 complexValue 被清除
+        $properties = $form->getProperties();
+        $this->assertNull($properties['data']->getComplexValue());
+    }
+
+    public function testRemoveAllValuesRecursive()
+    {
+        // 测试递归清除多层嵌套的值
+        $formData = json_decode(<<<'JSON'
+{
+    "type": "object",
+    "key": "root",
+    "sort": 0,
+    "title": "Root",
+    "description": null,
+    "required": [],
+    "value": null,
+    "items": null,
+    "properties": {
+        "level1": {
+            "type": "object",
+            "key": "level1",
+            "sort": 0,
+            "title": "Level 1",
+            "description": null,
+            "required": [],
+            "value": null,
+            "items": null,
+            "properties": {
+                "level2": {
+                    "type": "object",
+                    "key": "level2",
+                    "sort": 0,
+                    "title": "Level 2",
+                    "description": null,
+                    "required": [],
+                    "value": null,
+                    "items": null,
+                    "properties": {
+                        "level3": {
+                            "type": "string",
+                            "key": "level3",
+                            "sort": 0,
+                            "title": "Level 3",
+                            "description": null,
+                            "required": null,
+                            "value": {
+                                "type": "const",
+                                "const_value": [
+                                    {
+                                        "type": "input",
+                                        "value": "deep_value"
+                                    }
+                                ],
+                                "expression_value": null
+                            },
+                            "items": null,
+                            "properties": null
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+JSON, true);
+
+        $form = $this->builder->build($formData);
+
+        // 验证初始状态
+        $level1 = $form->getProperties()['level1'];
+        $level2 = $level1->getProperties()['level2'];
+        $level3 = $level2->getProperties()['level3'];
+        $this->assertNotNull($level3->getValue());
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证所有层级的值都被清除
+        $level1After = $form->getProperties()['level1'];
+        $level2After = $level1After->getProperties()['level2'];
+        $level3After = $level2After->getProperties()['level3'];
+        $this->assertNull($level3After->getValue());
+    }
+
+    public function testRemoveAllValuesWithArray()
+    {
+        // 测试数组类型的值清除
+        $form = $this->builder->build($this->getFormJsonArray2());
+
+        // 添加常量值
+        $input = [
+            [
+                'array_key_child1' => 'value1',
+                'array_array' => ['item1', 'item2'],
+                'array_object' => [
+                    'array_object_key1' => 'object_value',
+                ],
+            ],
+        ];
+        $form->appendConstValue($input);
+
+        // 验证初始状态有值
+        $keyValue = $form->getKeyValue(execExpression: false);
+        $this->assertNotEmpty($keyValue);
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证 items 中的值被清除
+        $items = $form->getItems();
+        if ($items) {
+            $this->assertNull($items->getValue());
+            $itemProperties = $items->getProperties();
+            if ($itemProperties) {
+                foreach ($itemProperties as $property) {
+                    $this->assertNull($property->getValue());
+                }
+            }
+        }
+
+        // 验证 properties 中的值被清除
+        $properties = $form->getProperties();
+        if ($properties) {
+            foreach ($properties as $property) {
+                $this->assertNull($property->getValue());
+                $this->assertNull($property->getComplexValue());
+            }
+        }
+    }
+
+    public function testRemoveAllValuesKeepsStructure()
+    {
+        // 测试清除值后结构保持不变
+        $form = $this->builder->build($this->getFormJsonArray());
+
+        // 记录原始结构
+        $originalProperties = $form->getProperties();
+        $originalPropertiesCount = count($originalProperties);
+        $originalObjectProperties = $originalProperties['object_key']->getProperties();
+        $originalObjectPropertiesCount = count($originalObjectProperties);
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证结构保持不变
+        $afterProperties = $form->getProperties();
+        $this->assertCount($originalPropertiesCount, $afterProperties);
+        $this->assertArrayHasKey('string_key', $afterProperties);
+        $this->assertArrayHasKey('object_key', $afterProperties);
+        $this->assertArrayHasKey('array_key', $afterProperties);
+
+        $afterObjectProperties = $afterProperties['object_key']->getProperties();
+        $this->assertCount($originalObjectPropertiesCount, $afterObjectProperties);
+        $this->assertArrayHasKey('object_key_child_string', $afterObjectProperties);
+        $this->assertArrayHasKey('object_array_expression', $afterObjectProperties);
+
+        // 验证类型保持不变
+        $this->assertEquals(FormType::String, $afterProperties['string_key']->getType());
+        $this->assertEquals(FormType::Object, $afterProperties['object_key']->getType());
+        $this->assertEquals(FormType::Array, $afterProperties['array_key']->getType());
+    }
+
+    public function testRemoveAllValuesArrayPropertiesCleared()
+    {
+        // 测试 array 类型的 properties（值）被清空
+        $formData = json_decode(<<<'JSON'
+{
+    "type": "array",
+    "key": "root",
+    "sort": 0,
+    "title": "Array Root",
+    "description": null,
+    "required": null,
+    "value": null,
+    "items": {
+        "type": "string",
+        "key": "item",
+        "sort": 0,
+        "title": "Item",
+        "description": null,
+        "required": null,
+        "value": null,
+        "items": null,
+        "properties": null
+    },
+    "properties": null
+}
+JSON, true);
+
+        $form = $this->builder->build($formData);
+
+        // 添加常量值
+        $input = ['value1', 'value2', 'value3'];
+        $form->appendConstValue($input);
+
+        // 验证初始状态有 properties
+        $this->assertNotNull($form->getProperties());
+        $this->assertCount(3, $form->getProperties());
+
+        // 调用 removeAllValues
+        $form->removeAllValues();
+
+        // 验证 array 类型的 properties 被清空
+        $this->assertNull($form->getProperties());
+
+        // 验证 items 结构保留
+        $this->assertNotNull($form->getItems());
+        $this->assertEquals(FormType::String, $form->getItems()->getType());
     }
 
     private function getFormJsonArray(): array

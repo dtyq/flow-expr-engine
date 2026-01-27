@@ -228,6 +228,36 @@ class Form extends Structure
     }
 
     /**
+     * 移除所有的 value，包括子表单的值
+     * 注意：这是破坏性操作，会递归清除所有层级的值，但保留表单结构.
+     */
+    public function removeAllValues(): Form
+    {
+        // 清除当前节点的值
+        $this->value = null;
+        $this->encryptionValue = null;
+        $this->complexValue = null;
+
+        // 处理 properties
+        if ($this->properties !== null) {
+            if ($this->getType()->isArray()) {
+                // 对于 array 类型，properties 存储的是值，直接清空
+                $this->properties = null;
+            } else {
+                // 对于 object 类型，properties 是子对象，递归清除
+                foreach ($this->properties as $property) {
+                    $property->removeAllValues();
+                }
+            }
+        }
+
+        // 递归清除 items 中的值（items 是数组的结构模板）
+        $this->items?->removeAllValues();
+
+        return $this;
+    }
+
+    /**
      * 实际运算的value.
      */
     public function getExecuteValue(): ?Value
