@@ -20,6 +20,11 @@ use Throwable;
 
 class ApiSend
 {
+    /**
+     * 是否允许使用调用方（节点配置）传入的代理的配置键，默认不允许。
+     */
+    public const ALLOW_CALLER_PROXY_CONFIG = 'flow_expr_engine.api.allow_caller_proxy';
+
     private ?StandardRequest $request = null;
 
     private ?StandardResponse $response = null;
@@ -56,7 +61,8 @@ class ApiSend
             RequestOptions::TIMEOUT => $this->timeout,
             RequestOptions::ALLOW_REDIRECTS => false,
         ];
-        if ($apiRequestOptions->getProxy()) {
+        // 调用方传入的代理不经过 SSRF 校验，默认忽略；不写 PROXY 时 Guzzle 仍会使用服务端环境变量中的代理
+        if ($apiRequestOptions->getProxy() && self::allowCallerProxy()) {
             $this->options[RequestOptions::PROXY] = $apiRequestOptions->getProxy();
         }
         $this->options[RequestOptions::VERIFY] = $apiRequestOptions->isVerify();
@@ -154,6 +160,17 @@ class ApiSend
             $componentId . '.' . ExpressionDataSourceSystemFields::GuzzleResponseBody->value => $this->getResponse()?->getArrayBody() ?? [],
         ];
         return Functions::unFlattenArray($config);
+    }
+
+    /**
+     * 读取是否允许调用方代理：未注册 SDK 容器或未配置时都视为不允许。
+     */
+    private static function allowCallerProxy(): bool
+    {
+        if (! ComponentContext::hasSdkContainer()) {
+            return false;
+        }
+        return (bool) ComponentContext::getSdkContainer()->getConfig()->get(self::ALLOW_CALLER_PROXY_CONFIG, false);
     }
 
     private function formatHeaders(array $originHeaders = []): array

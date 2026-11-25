@@ -7,12 +7,15 @@ declare(strict_types=1);
 
 namespace Dtyq\FlowExprEngine\Test\Structure\Api;
 
+use Dtyq\FlowExprEngine\ComponentContext;
 use Dtyq\FlowExprEngine\Structure\Api\ApiRequestBodyType;
 use Dtyq\FlowExprEngine\Structure\Api\ApiRequestOptions;
 use Dtyq\FlowExprEngine\Structure\Api\ApiSend;
 use Dtyq\FlowExprEngine\Structure\Api\Safe\DefenseAgainstSSRFOptions;
 use Dtyq\FlowExprEngine\Test\BaseTestCase;
 use Error;
+use GuzzleHttp\RequestOptions;
+use ReflectionProperty;
 
 /**
  * @internal
@@ -110,6 +113,33 @@ class ApiSendTest extends BaseTestCase
 
         $apiSend = new ApiSend($apiRequestOptions);
         $this->assertInstanceOf(ApiSend::class, $apiSend);
+    }
+
+    public function testCallerProxyIgnoredByDefault(): void
+    {
+        $this->assertArrayNotHasKey(RequestOptions::PROXY, $this->sendOptions(new ApiSend($this->proxyRequestOptions('http://127.0.0.1:8080'))));
+    }
+
+    public function testCallerProxyIgnoredWhenDisabledExplicitly(): void
+    {
+        $this->withAllowCallerProxy(false, function () {
+            $this->assertArrayNotHasKey(RequestOptions::PROXY, $this->sendOptions(new ApiSend($this->proxyRequestOptions('127.0.0.1:8080'))));
+        });
+    }
+
+    public function testCallerProxyUsedWhenEnabled(): void
+    {
+        $this->withAllowCallerProxy(true, function () {
+            $options = $this->sendOptions(new ApiSend($this->proxyRequestOptions('http://proxy.example.com:8080')));
+            $this->assertSame('http://proxy.example.com:8080', $options[RequestOptions::PROXY] ?? null);
+        });
+    }
+
+    public function testEmptyProxyNotUsedWhenEnabled(): void
+    {
+        $this->withAllowCallerProxy(true, function () {
+            $this->assertArrayNotHasKey(RequestOptions::PROXY, $this->sendOptions(new ApiSend($this->proxyRequestOptions(''))));
+        });
     }
 
     public function testApiRequestOptionsWithFormData(): void
@@ -324,5 +354,37 @@ class ApiSendTest extends BaseTestCase
         $this->assertEquals('json', ApiRequestBodyType::Json->value);
         $this->assertEquals('x-www-form-urlencoded', ApiRequestBodyType::XWwwFormUrlencoded->value);
         $this->assertEquals('form-data', ApiRequestBodyType::FormData->value);
+    }
+
+    private function proxyRequestOptions(string $proxy): ApiRequestOptions
+    {
+        $apiRequestOptions = new ApiRequestOptions();
+        $apiRequestOptions->setMethod('GET');
+        $apiRequestOptions->setUri('https://api.example.com/users');
+        $apiRequestOptions->setProxy($proxy);
+        return $apiRequestOptions;
+    }
+
+    /**
+     * 读取 ApiSend 最终交给 HTTP 客户端的请求选项。
+     */
+    private function sendOptions(ApiSend $apiSend): array
+    {
+        return (new ReflectionProperty(ApiSend::class, 'options'))->getValue($apiSend);
+    }
+
+    /**
+     * 临时修改 SDK 容器中的开关，执行完恢复原值，避免影响其他用例。
+     */
+    private function withAllowCallerProxy(bool $allow, callable $callback): void
+    {
+        $config = ComponentContext::getSdkContainer()->getConfig();
+        $original = $config->get(ApiSend::ALLOW_CALLER_PROXY_CONFIG);
+        $config->set(ApiSend::ALLOW_CALLER_PROXY_CONFIG, $allow);
+        try {
+            $callback();
+        } finally {
+            $original === null ? $config->delete(ApiSend::ALLOW_CALLER_PROXY_CONFIG) : $config->set(ApiSend::ALLOW_CALLER_PROXY_CONFIG, $original);
+        }
     }
 }

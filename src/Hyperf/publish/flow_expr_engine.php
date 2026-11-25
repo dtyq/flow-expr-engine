@@ -13,6 +13,10 @@ return [
     'logger' => [
         'enabled' => true,
     ],
+    'api' => [
+        // 是否允许 HTTP 节点使用调用方传入的代理。代理地址不经过 SSRF 校验，默认关闭；需要代理时使用服务端环境变量 HTTP_PROXY / HTTPS_PROXY
+        'allow_caller_proxy' => false,
+    ],
     // 使用 php_sandbox 执行代码时，允许使用的 php 函数
     'php_sandbox_functions' => [
         [
